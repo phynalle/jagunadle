@@ -31,6 +31,7 @@ const std::shared_ptr<jagunadle::JsonObject> jagunadle::JsonValue::nullobject = 
 
 jagunadle::JsonValue::JsonValue() { set_type(Type::Null); }
 jagunadle::JsonValue::JsonValue(bool value) { *this = value; }
+jagunadle::JsonValue::JsonValue(double value) { *this = value; }
 jagunadle::JsonValue::JsonValue(Int value) { *this = value; }
 jagunadle::JsonValue::JsonValue(Int8 value) { *this = value; }
 jagunadle::JsonValue::JsonValue(Int16 value) { *this = value; }

@@ -52,6 +52,7 @@ class JsonValue {
 public:
     JsonValue();
     JsonValue(bool value);
+    JsonValue(double value);
     JsonValue(Int value);
     JsonValue(Int8 value);
     JsonValue(Int16 value);
