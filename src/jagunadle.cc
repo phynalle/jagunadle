@@ -27,7 +27,7 @@ std::string jagunadle::dumps(const JsonObject& json) {
 
 const std::string jagunadle::JsonValue::nullstring;
 const jagunadle::JsonArray jagunadle::JsonValue::nullarray;
-const std::shared_ptr<jagunadle::JsonObject> jagunadle::JsonValue::nullobject = std::make_shared<jagunadle::JsonObject>();
+const jagunadle::JsonObjectPtr jagunadle::JsonValue::nullobject;
 
 jagunadle::JsonValue::JsonValue() { set_type(Type::Null); }
 jagunadle::JsonValue::JsonValue(bool value) { *this = value; }
@@ -47,14 +47,13 @@ jagunadle::JsonValue::JsonValue(const std::string& value) { *this = value; }
 jagunadle::JsonValue::JsonValue(const JsonArray& value) { *this = value; }
 jagunadle::JsonValue::JsonValue(const JsonObject& value) { *this = value; }
     
-       
-jagunadle::JsonValue::~JsonValue() {}
-jagunadle::JsonValue::JsonValue(const JsonValue& from) : type_(from.type_), value_(from.value_) {
-    if (check_type(Type::Object)) {
-        set_value(*value_.object);
-    }
+jagunadle::JsonValue::JsonValue(const JsonValue& from) {
+    copy(from);  
 }
-jagunadle::JsonValue::JsonValue(JsonValue&& from) : type_(std::move(from.type_)), value_(std::move(from.value_)) {}
+
+jagunadle::JsonValue::JsonValue(JsonValue&& from) 
+    : type_(std::move(from.type_)), value_(std::move(from.value_)) {
+}
 
 bool jagunadle::JsonValue::operator==(const JsonValue& other) {
     return (type_ == other.type_);        
@@ -116,10 +115,13 @@ jagunadle::JsonValue& jagunadle::JsonValue::operator=(const JsonObject& value) {
 }
 
 jagunadle::JsonValue& jagunadle::JsonValue::operator=(const JsonValue& other) {
-    if (this != &other) {
-        type_ = other.type_;
-        value_ = other.value_;
-    }
+    copy(other);
+    return *this;
+}
+
+jagunadle::JsonValue& jagunadle::JsonValue::operator=(JsonValue&& other) {
+    value_.swap(other.value_);
+    type_ = other.type_;
     return *this;
 }
 
@@ -163,11 +165,11 @@ std::string jagunadle::JsonValue::s() const {
     match_type_or_exception(Type::String);
     return value_.raw;
 }
-const jagunadle::JsonArray& jagunadle::JsonValue::a() const {
+jagunadle::JsonArray& jagunadle::JsonValue::a() {
     match_type_or_exception(Type::Array);
     return value_.array;
 }
-const jagunadle::JsonObject& jagunadle::JsonValue::o() const {
+jagunadle::JsonObject& jagunadle::JsonValue::o() {
     match_type_or_exception(Type::Object);
     return *value_.object;
 }
@@ -178,6 +180,11 @@ bool jagunadle::JsonValue::is_number() const { return check_type(Type::Number); 
 bool jagunadle::JsonValue::is_string() const { return check_type(Type::String); }
 bool jagunadle::JsonValue::is_array() const { return check_type(Type::Array); }
 bool jagunadle::JsonValue::is_object() const { return check_type(Type::Object); }   
+ 
+void jagunadle::JsonValue::copy(const JsonValue& from) {
+    value_ = from.value_;
+    type_ = from.type_;
+}
  
 bool jagunadle::JsonValue::check_type(Type t) const { return t == type_; }
 
@@ -222,20 +229,19 @@ void jagunadle::JsonValue::set_type(Type t) {
 }
 
 void jagunadle::JsonValue::set_value() {
-    value_ = {nullstring, nullarray, nullobject};
+    value_ = ValueHolder();
 }
 
 void jagunadle::JsonValue::set_value(const std::string& v) {
-    value_ = {v, nullarray, nullobject};
+    value_ = ValueHolder(v);
 }
 
 void jagunadle::JsonValue::set_value(const JsonArray& v) {
-    value_ = {nullstring, v, nullobject};
+    value_ = ValueHolder(v);
 }
 
 void jagunadle::JsonValue::set_value(const JsonObject& v) {
-    
-    value_ = {nullstring, nullarray, std::make_shared<JsonObject>(v)};
+    value_ = ValueHolder(v);
 }
 
 std::string jagunadle::JsonValue::dump() const {

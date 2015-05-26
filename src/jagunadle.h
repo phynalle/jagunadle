@@ -31,6 +31,7 @@ typedef unsigned long long int Uint64;
 class JsonValue;
 typedef std::vector<JsonValue> JsonArray;
 typedef std::unordered_map<std::string, JsonValue> JsonObject;
+typedef std::unique_ptr<JsonObject> JsonObjectPtr;
 
 class JsonValue {
     enum class Type {
@@ -42,11 +43,46 @@ class JsonValue {
         Array,
         Object,
     };
-        
+    
     struct ValueHolder {
+        ValueHolder() {}
+        ValueHolder(const std::string& raw) : raw(raw) {}
+        ValueHolder(const JsonArray& arr) : array(arr) {}
+        ValueHolder(const JsonObject& obj) : object(new JsonObject(obj)) {}
+        
+        ValueHolder(const ValueHolder& from) 
+            : raw(from.raw), array(from.array), object(from.clone_obj()) {}
+        ValueHolder(ValueHolder&& from) 
+            : raw(std::move(from.raw)), array(std::move(from.array)), 
+            object(std::move(from.object)) {}
+        ValueHolder& operator=(const ValueHolder& other) {
+            raw = other.raw;
+            array = other.array;
+            object = other.clone_obj();
+            return *this;
+        }
+        
+        ValueHolder& operator=(ValueHolder&& other) {
+            swap(other);
+            return *this;
+        }
+        
+        JsonObjectPtr clone_obj() const {
+            JsonObjectPtr cloned;
+            if (object) {
+                cloned = JsonObjectPtr(new JsonObject(*object));
+            }
+            return cloned;
+        }
+        
+        void swap(ValueHolder& r) {
+            raw.swap(r.raw);
+            array.swap(r.array);
+            object.swap(r.object);
+        }
         std::string raw;
         JsonArray array;
-        std::shared_ptr<JsonObject> object;    
+        JsonObjectPtr object;
     };
     
 public:
@@ -68,7 +104,6 @@ public:
     JsonValue(const JsonArray& value);
     JsonValue(const JsonObject& value);
         
-    virtual ~JsonValue();
     JsonValue(const JsonValue& from);
     JsonValue(JsonValue&& from);
     
@@ -97,6 +132,7 @@ public:
     JsonValue& operator=(const JsonObject& value);
     
     JsonValue& operator=(const JsonValue& other);
+    JsonValue& operator=(JsonValue&& other);
     
     bool b() const ;
     bool t() const ;
@@ -117,8 +153,8 @@ public:
     Uint64 ui64() const;
    
     std::string s() const;
-    const JsonArray& a() const;
-    const JsonObject& o() const;
+    JsonArray& a();
+    JsonObject& o();
     bool is_null() const;
     bool is_boolean() const;
     bool is_number() const;
@@ -126,7 +162,9 @@ public:
     bool is_array() const;
     bool is_object() const;
     
-private:    
+private:
+    void copy(const JsonValue& from);
+    
     bool check_type(Type t) const;
     void boolean_or_exception() const;
     void match_type_or_exception(Type t) const;
@@ -145,7 +183,7 @@ private:
     
     static const std::string nullstring;
 	static const JsonArray nullarray;
-    static const std::shared_ptr<JsonObject> nullobject;
+    static const JsonObjectPtr nullobject;
     
     friend std::string dumps(const JsonObject& json);
 };
