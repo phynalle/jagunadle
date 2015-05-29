@@ -15,6 +15,17 @@ public:
     explicit TypeError(const std::string& what) : std::runtime_error(what) {}
 };
 
+class ArrayIndexOutOfBounds : public std::runtime_error {
+public:
+    explicit ArrayIndexOutOfBounds(const std::string& what) : std::runtime_error(what) {}
+};
+
+class KeyNotFound : public std::runtime_error {
+public:
+    explicit KeyNotFound(const std::string& what) : std::runtime_error(what) {}
+};
+
+
 
 typedef int Int;
 typedef char Int8;
@@ -33,17 +44,17 @@ typedef std::vector<JsonValue> JsonArray;
 typedef std::unordered_map<std::string, JsonValue> JsonObject;
 typedef std::unique_ptr<JsonObject> JsonObjectPtr;
 
-class JsonValue {
-    enum class Type {
-        Null,
-        True,
-        False,
-        Number,
-        String,
-        Array,
-        Object,
-    };
+enum class Type {
+    Null,
+    True,
+    False,
+    Number,
+    String,
+    Array,
+    Object,
+};
     
+class JsonValue {
     struct ValueHolder {
         ValueHolder() {}
         ValueHolder(const std::string& raw) : raw(raw) {}
@@ -134,11 +145,14 @@ public:
     JsonValue& operator=(const JsonValue& other);
     JsonValue& operator=(JsonValue&& other);
     
-    bool b() const ;
-    bool t() const ;
-    bool f() const ;
+    JsonValue& operator[](int index);
+    JsonValue& operator[](std::string key);
+    Type type() { return type_; }
+    bool b() const;
+    bool t() const;
+    bool f() const;
 
-    double d() const ;
+    double d() const;
         
     Int i() const;
     Int8 i8() const; 
@@ -155,6 +169,7 @@ public:
     std::string s() const;
     JsonArray& a();
     JsonObject& o();
+    
     bool is_null() const;
     bool is_boolean() const;
     bool is_number() const;
@@ -168,7 +183,7 @@ private:
     bool check_type(Type t) const;
     void boolean_or_exception() const;
     void match_type_or_exception(Type t) const;
-    void throw_type_error() const;
+    void throw_type_error(Type t) const;
     
     void set_type(Type t);
     void set_value();
@@ -180,16 +195,14 @@ private:
     
     Type type_;
     ValueHolder value_;  
-    
-    static const std::string nullstring;
-	static const JsonArray nullarray;
-    static const JsonObjectPtr nullobject;
-    
+
     friend std::string dumps(const JsonObject& json);
 };
 
+std::string type_to_string(Type type);
 std::string dumps(const JsonObject& json) ;
 
 } // namespace jaguandle
 
 #endif /* JAGUNADLE_H_ */
+

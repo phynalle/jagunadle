@@ -25,10 +25,6 @@ std::string jagunadle::dumps(const JsonObject& json) {
     return oss.str();
 }
 
-const std::string jagunadle::JsonValue::nullstring;
-const jagunadle::JsonArray jagunadle::JsonValue::nullarray;
-const jagunadle::JsonObjectPtr jagunadle::JsonValue::nullobject;
-
 jagunadle::JsonValue::JsonValue() { set_type(Type::Null); }
 jagunadle::JsonValue::JsonValue(bool value) { *this = value; }
 jagunadle::JsonValue::JsonValue(double value) { *this = value; }
@@ -125,6 +121,32 @@ jagunadle::JsonValue& jagunadle::JsonValue::operator=(JsonValue&& other) {
     return *this;
 }
 
+jagunadle::JsonValue& jagunadle::JsonValue::operator[](int index) {
+    match_type_or_exception(Type::Array);
+    if (index < 0 || index >= value_.array.size()) {
+        std::string message = "size of array: ";
+        message += std::to_string(value_.array.size());
+        message += ", index: ";
+        message += std::to_string(index);
+        throw ArrayIndexOutOfBounds(message);
+    }
+    return value_.array[index];    
+}
+
+jagunadle::JsonValue& jagunadle::JsonValue::operator[](std::string key) {
+    match_type_or_exception(Type::Object);
+    JsonObject& obj = *value_.object;
+    
+    JsonObject::iterator found_it = obj.find(key);
+    if (found_it == obj.end()) {
+        std::string message = "key ";
+        message += key;
+        message += " not found";
+        throw KeyNotFound(message);
+    }
+    return found_it->second;
+}
+
 bool jagunadle::JsonValue::b() const {
     boolean_or_exception();
     return type_ == Type::True;
@@ -190,39 +212,21 @@ bool jagunadle::JsonValue::check_type(Type t) const { return t == type_; }
 
 void jagunadle::JsonValue::boolean_or_exception() const {
     if (check_type(Type::True) || check_type(Type::False)) return;
-    throw_type_error();
+    throw_type_error(Type::True);
 }
 void jagunadle::JsonValue::match_type_or_exception(Type t) const {
     if (check_type(t)) return;
-    throw_type_error();
+    throw_type_error(t);
 }
-void jagunadle::JsonValue::throw_type_error() const {
-    std::string type_name = "null";
-    switch (type_) {
-      case Type::Null:
-        type_name = "null";
-      case Type::True:
-      case Type::False:
-        type_name = "boolean";
-        break;
-      case Type::Number:
-        type_name = "number";
-        break;
-      case Type::String:
-        type_name = "string";
-        break;
-      case Type::Array:
-        type_name = "array";
-        break;
-      case Type::Object:
-        type_name = "object";
-        break;
-      default:
-        break;
-    }       
-    throw TypeError("value should be "+type_name);
-}
+void jagunadle::JsonValue::throw_type_error(Type t) const {
+    std::string message = "the value type is '";
+    message += type_to_string(type_);
+    message += "\', not \'";
+    message += type_to_string(t);
+    message += '\'';
 
+    throw TypeError(message);
+}
 
 void jagunadle::JsonValue::set_type(Type t) {
     type_ = t;
@@ -244,17 +248,30 @@ void jagunadle::JsonValue::set_value(const JsonObject& v) {
     value_ = ValueHolder(v);
 }
 
+std::string jagunadle::type_to_string(jagunadle::Type type) {
+    switch (type) {
+      case jagunadle::Type::True:
+      case jagunadle::Type::False: return "boolean";
+      case jagunadle::Type::Number: return "number";
+      case jagunadle::Type::String: return "string";
+      case jagunadle::Type::Array: return "array";
+      case jagunadle::Type::Object: return "object";
+      default: break;
+    }
+    return "null";
+}
+
 std::string jagunadle::JsonValue::dump() const {
     switch (type_) {
-      case Type::True:
+      case jagunadle::Type::True:
         return "true";
-      case Type::False:
+      case jagunadle::Type::False:
         return "false";
-      case Type::Number:
+      case jagunadle::Type::Number:
         return value_.raw;
-      case Type::String:
+      case jagunadle::Type::String:
         return '"' + value_.raw + '"';
-      case Type::Array: {
+      case jagunadle::Type::Array: {
             std::ostringstream oss;
             oss << "[";
             auto& arr = value_.array;
